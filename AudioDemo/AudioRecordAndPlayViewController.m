@@ -11,45 +11,92 @@
 #import <AVFoundation/AVFoundation.h>
 #import <CoreAudio/CoreAudioTypes.h>
 
-@interface AudioRecordAndPlayViewController ()
+@interface AudioRecordAndPlayViewController () <AVAudioPlayerDelegate, AVAudioRecorderDelegate>
 @property (strong) AVAudioRecorder* recorder;
 @property (strong) AVAudioPlayer* player;
 
-- (IBAction)beginRecording;
-- (IBAction)endRecording;
+@property (weak, nonatomic) IBOutlet UIButton *recordingButton;
+@property (weak, nonatomic) IBOutlet UIButton *playbackButton;
 
-- (IBAction)playbackRecording;
+-(IBAction)toggleRecording;
+-(IBAction)togglePlayback;
 @end
 
 @implementation AudioRecordAndPlayViewController
-- (IBAction)beginRecording {
-  CFUUIDRef uuidObject = CFUUIDCreate(kCFAllocatorDefault);
-  NSString *uuidStr = (__bridge_transfer NSString *)CFUUIDCreateString(kCFAllocatorDefault, uuidObject);
-  CFRelease(uuidObject);
-  
+
+-(void)resetPlayingTitles {
+  if (self.player.playing) {
+    [self.playbackButton setTitle:@"End Playing" forState:UIControlStateNormal];
+    [self.playbackButton setTitle:@"End Playing" forState:UIControlStateHighlighted];
+  } else {
+    [self.playbackButton setTitle:@"Begin Playing" forState:UIControlStateNormal];
+    [self.playbackButton setTitle:@"Begin Playing" forState:UIControlStateHighlighted];
+  }
+}
+
+-(void)resetRecordingTitles {
+  if (self.recorder.recording) {
+    [self.recordingButton setTitle:@"End Recording" forState:UIControlStateNormal];
+    [self.recordingButton setTitle:@"End Recording" forState:UIControlStateHighlighted];
+  } else {
+    [self.recordingButton setTitle:@"Begin Recording" forState:UIControlStateNormal];
+    [self.recordingButton setTitle:@"Begin Recording" forState:UIControlStateHighlighted];
+  }
+}
+
+-(void)audioPlayerDidFinishPlaying:(AVAudioPlayer*)player
+                      successfully:(BOOL)flag {
+  [self resetPlayingTitles];
+}
+
+-(void)audioRecorderDidFinishRecording:(AVAudioRecorder*)recorder
+                          successfully:(BOOL)flag {
+  [self resetRecordingTitles];
+}
+
+-(void)viewDidLoad {
+  [super viewDidLoad];
+
   NSURL* documentDir = [[[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask] lastObject];
   
   NSURL* audioURL = [documentDir URLByAppendingPathComponent:@"audio.wav"];
   
   NSDictionary* options = @{
-    AVFormatIDKey : [NSNumber numberWithInt:kAudioFormatLinearPCM],
-    AVSampleRateKey : [NSNumber numberWithDouble:48000],
-    AVNumberOfChannelsKey : [NSNumber numberWithInt:2]
+  AVFormatIDKey : [NSNumber numberWithInt:kAudioFormatLinearPCM],
+  AVSampleRateKey : [NSNumber numberWithDouble:48000],
+  AVNumberOfChannelsKey : [NSNumber numberWithInt:2]
   };
   
   self.recorder = [[AVAudioRecorder alloc] initWithURL:audioURL settings:options error:nil];
-  
-  [self.recorder record];
+  self.recorder.delegate = self;
+  self.player = [[AVAudioPlayer alloc] initWithContentsOfURL:audioURL error:nil];
+  self.player.delegate = self;
 }
 
-- (IBAction)endRecording {
-  [self.recorder stop];
+-(IBAction)toggleRecording {
+  if (!self.recorder.recording) {
+    if (self.player.playing)
+      [self togglePlayback];
+    
+    [self.recorder record];
+  } else {
+    [self.recorder stop];
+  }
   
-  self.player = [[AVAudioPlayer alloc] initWithContentsOfURL:self.recorder.url error:nil];
-  self.player.volume = 1.0;
-  [self.player play];
+  [self resetRecordingTitles];
 }
 
-- (IBAction)playbackRecording {
+-(IBAction)togglePlayback {
+  if (!self.player.playing) {
+    if (self.recorder.recording)
+      [self toggleRecording];
+    
+    [self.player play];
+  } else {
+    [self.player stop];
+  }
+  
+  [self resetPlayingTitles];
 }
+
 @end
